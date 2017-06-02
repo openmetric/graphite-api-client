@@ -3,16 +3,16 @@ package graphiteapi
 import (
 	"fmt"
 	pb "github.com/go-graphite/carbonzipper/carbonzipperpb3"
-	"io/ioutil"
-	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 )
 
 // RenderQuery constructs a '/render/' query. RenderQuery implements Query
 type RenderQuery struct {
 	Targets       []string
-	From          interface{}
-	Until         interface{}
+	From          string
+	Until         string
 	MaxDataPoints int
 }
 
@@ -33,12 +33,12 @@ func NewRenderQuery(targets ...*QueryTarget) *RenderQuery {
 	return q
 }
 
-func (q *RenderQuery) SetFrom(from interface{}) *RenderQuery {
+func (q *RenderQuery) SetFrom(from string) *RenderQuery {
 	q.From = from
 	return q
 }
 
-func (q *RenderQuery) SetUntil(until interface{}) *RenderQuery {
+func (q *RenderQuery) SetUntil(until string) *RenderQuery {
 	q.Until = until
 	return q
 }
@@ -54,47 +54,41 @@ func (q *RenderQuery) SetMaxDataPoints(maxDataPoints int) *RenderQuery {
 }
 
 // URL implements Query interface
-func (q *RenderQuery) URL(urlbase string, format string) string {
-	args := []string{}
-	for _, t := range q.Targets {
-		args = append(args, "target="+t)
+func (q *RenderQuery) URL(urlbase string, format string) *url.URL {
+	u, _ := url.Parse(urlbase + "/render/")
+	v := url.Values{}
+
+	for _, target := range q.Targets {
+		v.Add("target", target)
 	}
-	if q.From != nil {
-		args = append(args, fmt.Sprintf("from=%v", q.From))
+
+	if q.From != "" {
+		v.Set("from", q.From)
 	}
-	if q.Until != nil {
-		args = append(args, fmt.Sprintf("until=%v", q.Until))
+
+	if q.Until != "" {
+		v.Set("until", q.Until)
 	}
+
 	if q.MaxDataPoints != 0 {
-		args = append(args, fmt.Sprintf("maxDataPoints=%d", q.MaxDataPoints))
+		v.Set("maxDataPoints", strconv.Itoa(q.MaxDataPoints))
 	}
+
 	if format != "" {
-		args = append(args, fmt.Sprintf("format=%s", format))
+		v.Set("format", format)
 	}
-	return fmt.Sprintf("%s/render/?%s", urlbase, strings.Join(args, "&"))
+
+	u.RawQuery = v.Encode()
+
+	return u
 }
 
 // Request implements Query interface
 func (q *RenderQuery) Request(urlbase string) (*RenderResponse, error) {
-	var err error
-	var req *http.Request
-	var resp *http.Response
-	var body []byte
-
-	url := q.URL(urlbase, "protobuf")
-	if req, err = newHttpRequest("GET", url, nil); err != nil {
-		return nil, err
-	}
-	if resp, err = httpClient.Do(req); err != nil {
-		return nil, err
-	}
-	if body, err = ioutil.ReadAll(resp.Body); err != nil {
-		return nil, err
-	}
+	u := q.URL(urlbase, "protobuf")
 
 	response := &RenderResponse{}
-	err = response.MultiFetchResponse.Unmarshal(body)
-	if err != nil {
+	if err := get(u, &response.MultiFetchResponse); err != nil {
 		return nil, err
 	}
 
