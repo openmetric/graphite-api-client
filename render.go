@@ -2,6 +2,9 @@ package graphiteapi
 
 import (
 	"fmt"
+	pb "github.com/go-graphite/carbonzipper/carbonzipperpb3"
+	"io/ioutil"
+	"net/http"
 	"strings"
 )
 
@@ -15,6 +18,7 @@ type RenderQuery struct {
 
 // RenderResponse represents render query response
 type RenderResponse struct {
+	pb.MultiFetchResponse
 }
 
 // NewRenderQuery returns a RenderQuery instance
@@ -71,8 +75,30 @@ func (q *RenderQuery) URL(urlbase string, format string) string {
 }
 
 // Request implements Query interface
-func (q *RenderQuery) Request(urlbase string) Response {
-	return &RenderResponse{}
+func (q *RenderQuery) Request(urlbase string) (*RenderResponse, error) {
+	var err error
+	var req *http.Request
+	var resp *http.Response
+	var body []byte
+
+	url := q.URL(urlbase, "protobuf")
+	if req, err = newHttpRequest("GET", url, nil); err != nil {
+		return nil, err
+	}
+	if resp, err = httpClient.Do(req); err != nil {
+		return nil, err
+	}
+	if body, err = ioutil.ReadAll(resp.Body); err != nil {
+		return nil, err
+	}
+
+	response := &RenderResponse{}
+	err = response.MultiFetchResponse.Unmarshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // Target represents a "?target=" in query

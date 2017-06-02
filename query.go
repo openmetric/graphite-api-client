@@ -5,7 +5,7 @@ type Query interface {
 	// Returns full request URL of this Query.
 	URL(string) string
 	// Sends requests to Graphite
-	Request(string) *Response
+	Request(string) (Response, error)
 }
 
 // Response is interface for all api request responses
