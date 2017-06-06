@@ -118,14 +118,17 @@ func formatFunction(name string, args ...interface{}) string {
 	return fmt.Sprintf("%s(%s)", name, strings.Join(t, ","))
 }
 
-// function shortcuts, for code completion
-
-func (t *QueryTarget) SumSeries() *QueryTarget {
-	t.str = formatFunction("sumSeries", t.str)
+func (t *QueryTarget) applyFunction(name string, args ...interface{}) *QueryTarget {
+	t.str = formatFunction(name, args...)
 	return t
 }
 
+// function shortcuts, for code completion
+
+func (t *QueryTarget) SumSeries() *QueryTarget {
+	return t.applyFunction("sumSeries", t.str)
+}
+
 func (t *QueryTarget) ConstantLine(value interface{}) *QueryTarget {
-	t.str = formatFunction("constantLine", value)
-	return t
+	return t.applyFunction("constantLine", value)
 }
