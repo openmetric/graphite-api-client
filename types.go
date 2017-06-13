@@ -39,6 +39,15 @@ type RenderTarget struct {
 // If the last maxNullPoints values are all absent, returns absent
 func GetLastNonNullValue(m *pb.FetchResponse, maxNullPoints int) (v float64, t int32, absent bool) {
 	l := len(m.Values)
+
+	if l == 0 {
+		// there is values, we should return absent
+		v = 0
+		t = m.StopTime
+		absent = true
+		return v, t, absent
+	}
+
 	for i := 0; i < maxNullPoints && i < l; i++ {
 		if m.IsAbsent[l-1-i] {
 			continue
@@ -48,9 +57,13 @@ func GetLastNonNullValue(m *pb.FetchResponse, maxNullPoints int) (v float64, t i
 		absent = false
 		return v, t, absent
 	}
-	// if we didn't return in the loop body, there were too many null points
-	v = 0
+
+	// if we get here, there are two cases
+	//   * maxNullPoints == 0, we didn't even enter the loop above
+	//   * maxNullPoints > 0, but we didn't find a non-null point in the loop
+	// in both cases, we return the last point's info
+	v = m.Values[l-1]
 	t = m.StopTime
-	absent = true
+	absent = m.IsAbsent[l-1]
 	return v, t, absent
 }
